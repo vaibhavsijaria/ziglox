@@ -1,0 +1,4 @@
+{
+    "editor.defaultFormatter": "ziglang.vscode-zig",
+    "editor.formatOnSave": true
+}
