@@ -12,19 +12,30 @@ pub fn runFile(allocator: Allocator, path: []const u8) !void {
     const buffer = try allocator.alloc(u8, file_size);
     defer allocator.free(buffer);
     _ = try file.readAll(buffer);
+    _ = try run(buffer);
 }
 
 pub fn runPrompt() !void {
-    var buffer: [1024]u8 = undefined;
+    var input: [1024]u8 = undefined;
     const stdin = std.io.getStdIn();
     const reader = stdin.reader();
+    var buffer = std.io.fixedBufferStream(&input);
+    const writer = buffer.writer();
 
     while (true) {
-        const prompt = try reader.readUntilDelimiter(&buffer, '\n');
-        try run(prompt);
+        print(">>> ", .{});
+        input = undefined;
+        if (reader.streamUntilDelimiter(writer, '\n', buffer.buffer.len)) {
+            _ = try writer.write("\n");
+            _ = try run(buffer.buffer);
+        } else |_| {
+            print("Existing...", .{});
+            break;
+        }
+        buffer.reset();
     }
 }
 
 pub fn run(source: []const u8) !void {
-    print("{s}\n", .{source});
+    print("{s}", .{source});
 }
