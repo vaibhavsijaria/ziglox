@@ -8,19 +8,19 @@ const runPrompt = scanner.runPrompt;
 pub fn main() !void {
     var args = std.process.args();
     _ = args.next().?;
+
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
     if (args.next()) |path| {
         if (args.skip()) {
             print("Usage: ziglox [script]\n", .{});
         } else {
-            var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-            defer arena.deinit();
-
-            const allocator = arena.allocator();
-
             try runFile(allocator, path);
         }
     } else {
-        try runPrompt();
+        try runPrompt(allocator);
     }
     return;
 }

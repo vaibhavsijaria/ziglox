@@ -15,7 +15,7 @@ pub fn runFile(allocator: Allocator, path: []const u8) !void {
     _ = try run(buffer);
 }
 
-pub fn runPrompt() !void {
+pub fn runPrompt(allocator: Allocator) !void {
     var input: [1024]u8 = undefined;
     const stdin = std.io.getStdIn();
     const reader = stdin.reader();
@@ -25,9 +25,15 @@ pub fn runPrompt() !void {
     while (true) {
         print(">>> ", .{});
         input = undefined;
-        if (reader.streamUntilDelimiter(writer, '\n', buffer.buffer.len)) {
+        if (reader.streamUntilDelimiter(
+            writer,
+            '\n',
+            buffer.buffer.len,
+        )) {
             _ = try writer.write("\n");
-            _ = try run(buffer.buffer);
+            const n = try buffer.getPos();
+            const prompt = try allocator.dupe(u8, buffer.buffer[0..n]);
+            _ = try run(prompt);
         } else |_| {
             print("Existing...", .{});
             break;
