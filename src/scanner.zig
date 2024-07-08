@@ -1,13 +1,14 @@
 const std = @import("std");
 const Tokens = @import("tokens.zig");
 
+const obj = Tokens.obj;
 const Token = Tokens.Token;
 const TokenType = Tokens.TokenType;
 const print = std.debug.print;
 const Allocator = std.mem.Allocator;
 const fs = std.fs;
 const ArrayList = std.ArrayList;
-const AutoHashMap = std.AutoHashMap;
+const StringHashMap = std.StringHashMap;
 
 pub fn runFile(allocator: Allocator, path: []const u8) !void {
     const file = try fs.cwd().openFile(path, .{});
@@ -40,7 +41,7 @@ pub fn runPrompt(allocator: Allocator) !void {
             const prompt = try allocator.dupe(u8, buffer.buffer[0..n]);
             _ = try run(allocator, prompt);
         } else |_| {
-            print("Existing...", .{});
+            print("Exiting...", .{});
             break;
         }
         buffer.reset();
@@ -48,13 +49,21 @@ pub fn runPrompt(allocator: Allocator) !void {
 }
 
 pub fn run(allocator: Allocator, source: []const u8) !void {
-    // print("{s}", .{source});
-    var scanner = Scanner.init(allocator, source);
+    var scanner = try Scanner.init(allocator, source);
     defer scanner.deinit();
-    _ = try scanner.scanTokens();
-    var tokens = scanner.tokens;
-    while (tokens.popOrNull()) |token| {
-        print("line: {}, tType: {s}, text: {s}\n", .{ token.line, @tagName(token.tType), token.lexeme.? });
+
+    const tokens = try scanner.scanTokens();
+    for (tokens.items) |token| {
+        print("line: {}, tType: {s}, lexeme: {s}", .{ token.line, @tagName(token.tType), token.lexeme.? });
+
+        if (token.literal) |literal| {
+            switch (literal) {
+                .str => |s| print(", literal: \"{s}\"", .{s}),
+                .num => |n| print(", literal: {d}", .{n}),
+            }
+        }
+
+        print("\n", .{});
     }
 }
 
@@ -64,19 +73,41 @@ const Scanner = struct {
     start: usize,
     current: usize,
     line: usize,
+    keywords: StringHashMap(TokenType),
+    allocator: Allocator,
 
-    pub fn init(allocator: Allocator, source: []const u8) Scanner {
+    pub fn init(allocator: Allocator, source: []const u8) !Scanner {
+        var keywords = StringHashMap(TokenType).init(allocator);
+        try keywords.put("and", .AND);
+        try keywords.put("class", .CLASS);
+        try keywords.put("else", .ELSE);
+        try keywords.put("false", .FALSE);
+        try keywords.put("for", .FOR);
+        try keywords.put("fun", .FUN);
+        try keywords.put("if", .IF);
+        try keywords.put("nil", .NIL);
+        try keywords.put("or", .OR);
+        try keywords.put("print", .PRINT);
+        try keywords.put("return", .RETURN);
+        try keywords.put("super", .SUPER);
+        try keywords.put("this", .THIS);
+        try keywords.put("true", .TRUE);
+        try keywords.put("var", .VAR);
+        try keywords.put("while", .WHILE);
         return .{
             .source = source,
             .tokens = ArrayList(Token).init(allocator),
             .start = 0,
             .current = 0,
             .line = 1,
+            .keywords = keywords,
+            .allocator = allocator,
         };
     }
 
     pub fn deinit(self: *Scanner) void {
         self.tokens.deinit();
+        self.keywords.deinit();
     }
 
     pub fn scanTokens(self: *Scanner) !ArrayList(Token) {
@@ -129,11 +160,21 @@ const Scanner = struct {
             else => {
                 if (isDigit(c)) {
                     try self.number();
+                } else if (isAlpha(c)) {
+                    try self.identifier();
                 } else {
                     printerr(self.line, "Unexpected character.");
                 }
             },
         }
+    }
+
+    fn identifier(self: *Scanner) !void {
+        while (isAlphaNumeric(self.peek())) _ = self.advance();
+
+        const text = self.source[self.start..self.current];
+        const tType = self.keywords.get(text) orelse .IDENTIFIER;
+        try self.addToken(tType, null);
     }
 
     fn string(self: *Scanner) !void {
@@ -146,24 +187,20 @@ const Scanner = struct {
             return;
         }
         _ = self.advance();
-        try self.addToken(
-            TokenType.STRING,
-            self.source[self.start + 1 .. self.current - 1],
-        );
+        const value = self.source[self.start + 1 .. self.current - 1];
+        try self.addToken(TokenType.STRING, obj{ .str = value });
     }
 
     fn number(self: *Scanner) !void {
-        while (self.isDigit(self.peek())) self.advance();
+        while (isDigit(self.peek())) _ = self.advance();
 
-        if (self.peek() == '.' and self.isDigit(self.peaknext())) {
-            self.advance();
-            while (self.isDigit(self.peek())) self.advance();
+        if (self.peek() == '.' and isDigit(self.peekNext())) {
+            _ = self.advance();
+            while (isDigit(self.peek())) _ = self.advance();
         }
-        const num = std.fmt.parseFloat(
-            f64,
-            self.source[self.start..self.current],
-        );
-        try self.addToken(TokenType.NUMBER, num);
+        const value = self.source[self.start..self.current];
+        const num = try std.fmt.parseFloat(f64, value);
+        try self.addToken(TokenType.NUMBER, obj{ .num = num });
     }
 
     fn isAtEnd(self: *Scanner) bool {
@@ -171,7 +208,17 @@ const Scanner = struct {
     }
 
     fn isDigit(c: u8) bool {
-        return c >= '0' and c <= 9;
+        return c >= '0' and c <= '9';
+    }
+
+    fn isAlpha(c: u8) bool {
+        return (c >= 'a' and c <= 'z') or
+            (c >= 'A' and c <= 'Z') or
+            c == '_';
+    }
+
+    fn isAlphaNumeric(c: u8) bool {
+        return isAlpha(c) or isDigit(c);
     }
 
     fn advance(self: *Scanner) u8 {
@@ -179,10 +226,11 @@ const Scanner = struct {
         return self.source[self.current - 1];
     }
 
-    fn addToken(self: *Scanner, tType: TokenType, literal: ?[]const u8) !void {
+    fn addToken(self: *Scanner, tType: TokenType, literal: ?obj) !void {
+        const lexeme = self.source[self.start..self.current];
         const token = Token{
             .tType = tType,
-            .lexeme = self.source[self.start..self.current],
+            .lexeme = lexeme,
             .line = self.line,
             .literal = literal,
         };

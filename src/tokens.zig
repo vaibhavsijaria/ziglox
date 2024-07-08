@@ -1,3 +1,5 @@
+const std = @import("std");
+
 pub const TokenType = enum {
     // Single-character tokens.
     LEFT_PAREN,
@@ -54,7 +56,7 @@ pub const obj = union(enum) {
 };
 
 pub const Token = struct {
-    literal: ?[]const u8,
+    literal: ?obj,
     tType: TokenType = undefined,
     lexeme: ?[]const u8 = undefined,
     line: usize,
