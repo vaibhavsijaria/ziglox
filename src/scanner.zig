@@ -17,7 +17,7 @@ pub fn runFile(allocator: Allocator, path: []const u8) !void {
     const buffer = try allocator.alloc(u8, file_size);
     defer allocator.free(buffer);
     _ = try file.readAll(buffer);
-    _ = try run(buffer);
+    _ = try run(allocator, buffer);
 }
 
 pub fn runPrompt(allocator: Allocator) !void {
@@ -38,7 +38,7 @@ pub fn runPrompt(allocator: Allocator) !void {
             _ = try writer.write("\n");
             const n = try buffer.getPos();
             const prompt = try allocator.dupe(u8, buffer.buffer[0..n]);
-            _ = try run(prompt);
+            _ = try run(allocator, prompt);
         } else |_| {
             print("Existing...", .{});
             break;
@@ -47,8 +47,15 @@ pub fn runPrompt(allocator: Allocator) !void {
     }
 }
 
-pub fn run(source: []const u8) !void {
-    print("{s}", .{source});
+pub fn run(allocator: Allocator, source: []const u8) !void {
+    // print("{s}", .{source});
+    var scanner = Scanner.init(allocator, source);
+    defer scanner.deinit();
+    _ = try scanner.scanTokens();
+    var tokens = scanner.tokens;
+    while (tokens.popOrNull()) |token| {
+        print("line: {}, tType: {s}, text: {s}\n", .{ token.line, @tagName(token.tType), token.lexeme.? });
+    }
 }
 
 const Scanner = struct {
@@ -118,12 +125,53 @@ const Scanner = struct {
             '\n' => {
                 self.line += 1;
             },
-            else => {},
+            '"' => try self.string(),
+            else => {
+                if (isDigit(c)) {
+                    try self.number();
+                } else {
+                    printerr(self.line, "Unexpected character.");
+                }
+            },
         }
+    }
+
+    fn string(self: *Scanner) !void {
+        while (self.peek() != '"' and !self.isAtEnd()) {
+            if (self.peek() == '\n') self.line += 1;
+            _ = self.advance();
+        }
+        if (self.isAtEnd()) {
+            printerr(self.line, "Unterminated string.");
+            return;
+        }
+        _ = self.advance();
+        try self.addToken(
+            TokenType.STRING,
+            self.source[self.start + 1 .. self.current - 1],
+        );
+    }
+
+    fn number(self: *Scanner) !void {
+        while (self.isDigit(self.peek())) self.advance();
+
+        if (self.peek() == '.' and self.isDigit(self.peaknext())) {
+            self.advance();
+            while (self.isDigit(self.peek())) self.advance();
+        }
+        const num = std.fmt.parseFloat(
+            f64,
+            self.source[self.start..self.current],
+        );
+        try self.addToken(TokenType.NUMBER, num);
     }
 
     fn isAtEnd(self: *Scanner) bool {
         return self.current >= self.source.len;
+    }
+
+    fn isDigit(c: u8) bool {
+        return c >= '0' and c <= 9;
     }
 
     fn advance(self: *Scanner) u8 {
@@ -148,8 +196,17 @@ const Scanner = struct {
         return true;
     }
 
-    fn peek(self: Scanner) u8 {
+    fn peek(self: *Scanner) u8 {
         if (self.isAtEnd()) return 0;
         return self.source[self.current];
+    }
+
+    fn peekNext(self: *Scanner) u8 {
+        if (self.current + 1 >= self.source.len) return 0;
+        return self.source[self.current + 1];
+    }
+
+    fn printerr(line: usize, message: []const u8) void {
+        print("Error {s} on line {}\n", .{ message, line });
     }
 };

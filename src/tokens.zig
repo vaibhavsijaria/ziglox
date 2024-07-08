@@ -1,4 +1,4 @@
-const TokenType = enum {
+pub const TokenType = enum {
     // Single-character tokens.
     LEFT_PAREN,
     RIGHT_PAREN,
@@ -48,9 +48,14 @@ const TokenType = enum {
     EOF,
 };
 
-const Token = struct {
+pub const obj = union(enum) {
+    str: []const u8,
+    num: f64,
+};
+
+pub const Token = struct {
     literal: ?[]const u8,
     tType: TokenType = undefined,
     lexeme: ?[]const u8 = undefined,
-    line: u8,
+    line: usize,
 };
