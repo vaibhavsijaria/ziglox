@@ -52,46 +52,66 @@ pub fn run(source: []const u8) !void {
 }
 
 const Scanner = struct {
-    source: []const u8 = undefined,
-    tokens: ArrayList(Token) = undefined,
-    start: usize = undefined,
-    current: usize = undefined,
+    source: []const u8,
+    tokens: ArrayList(Token),
+    start: usize,
+    current: usize,
     line: usize,
 
-    fn init(self: Scanner, source: []const u8) *Scanner {
-        self.source = source;
+    pub fn init(allocator: Allocator, source: []const u8) Scanner {
+        return .{
+            .source = source,
+            .tokens = ArrayList(Token).init(allocator),
+            .start = 0,
+            .current = 0,
+            .line = 1,
+        };
     }
 
-    fn scanTokens(self: Scanner) void {
-        while (!isAtEnd()) {
+    pub fn deinit(self: *Scanner) void {
+        self.tokens.deinit();
+    }
+
+    pub fn scanTokens(self: *Scanner) !ArrayList(Token) {
+        while (!self.isAtEnd()) {
             self.start = self.current;
+            try self.scanToken();
         }
+
+        try self.tokens.append(Token{
+            .tType = TokenType.EOF,
+            .lexeme = "",
+            .line = self.line,
+            .literal = null,
+        });
+
+        return self.tokens;
     }
 
-    fn scanToken(self: Scanner) void {
+    fn scanToken(self: *Scanner) !void {
         const c = self.advance();
         switch (c) {
-            '(' => self.addToken(TokenType.LEFT_PAREN, null),
-            ')' => self.addToken(TokenType.RIGHT_PAREN, null),
-            '{' => self.addToken(TokenType.LEFT_BRACE, null),
-            '}' => self.addToken(TokenType.RIGHT_BRACE, null),
-            ',' => self.addToken(TokenType.COMMA, null),
-            '.' => self.addToken(TokenType.DOT, null),
-            '-' => self.addToken(TokenType.MINUS, null),
-            '+' => self.addToken(TokenType.PLUS, null),
-            ';' => self.addToken(TokenType.SEMICOLON, null),
-            '*' => self.addToken(TokenType.STAR, null),
-            '!' => self.addToken(if (self.match('=')) TokenType.BANG_EQUAL else TokenType.BANG, null),
-            '=' => self.addToken(if (self.match('=')) TokenType.EQUAL_EQUAL else TokenType.EQUAL, null),
-            '<' => self.addToken(if (self.match('=')) TokenType.LESS_EQUAL else TokenType.LESS, null),
-            '>' => self.addToken(if (self.match('=')) TokenType.GREATER_EQUAL else TokenType.GREATER, null),
+            '(' => try self.addToken(TokenType.LEFT_PAREN, null),
+            ')' => try self.addToken(TokenType.RIGHT_PAREN, null),
+            '{' => try self.addToken(TokenType.LEFT_BRACE, null),
+            '}' => try self.addToken(TokenType.RIGHT_BRACE, null),
+            ',' => try self.addToken(TokenType.COMMA, null),
+            '.' => try self.addToken(TokenType.DOT, null),
+            '-' => try self.addToken(TokenType.MINUS, null),
+            '+' => try self.addToken(TokenType.PLUS, null),
+            ';' => try self.addToken(TokenType.SEMICOLON, null),
+            '*' => try self.addToken(TokenType.STAR, null),
+            '!' => try self.addToken(if (self.match('=')) TokenType.BANG_EQUAL else TokenType.BANG, null),
+            '=' => try self.addToken(if (self.match('=')) TokenType.EQUAL_EQUAL else TokenType.EQUAL, null),
+            '<' => try self.addToken(if (self.match('=')) TokenType.LESS_EQUAL else TokenType.LESS, null),
+            '>' => try self.addToken(if (self.match('=')) TokenType.GREATER_EQUAL else TokenType.GREATER, null),
             '/' => {
                 if (self.match('/')) {
                     while (self.peek() != '\n' and !self.isAtEnd()) {
                         _ = self.advance();
                     }
                 } else {
-                    addToken(TokenType.SLASH, null);
+                    try self.addToken(TokenType.SLASH, null);
                 }
             },
             ' ', '\r', '\t' => {},
@@ -102,34 +122,28 @@ const Scanner = struct {
         }
     }
 
-    fn isAtEnd(self: Scanner) bool {
+    fn isAtEnd(self: *Scanner) bool {
         return self.current >= self.source.len;
     }
 
-    fn advance(self: Scanner) u8 {
+    fn advance(self: *Scanner) u8 {
         self.current += 1;
         return self.source[self.current - 1];
     }
 
-    fn addToken(self: Scanner, tType: TokenType, literal: ?[]const u8) void {
-        var token = Token{
+    fn addToken(self: *Scanner, tType: TokenType, literal: ?[]const u8) !void {
+        const token = Token{
             .tType = tType,
             .lexeme = self.source[self.start..self.current],
             .line = self.line,
+            .literal = literal,
         };
-
-        if (literal) |str| {
-            token.literal = str;
-        } else {
-            token.literal = null;
-        }
-        self.tokens.append(token);
+        try self.tokens.append(token);
     }
 
-    fn match(self: Scanner, char: u8) bool {
+    fn match(self: *Scanner, expected: u8) bool {
         if (self.isAtEnd()) return false;
-        if (self.source[self.current] != char) return false;
-
+        if (self.source[self.current] != expected) return false;
         self.current += 1;
         return true;
     }
