@@ -49,7 +49,8 @@ const TokenType = enum {
 };
 
 const Token = struct {
+    literal: []const u8,
     tType: TokenType = undefined,
-    lexeme: []const u8 = undefined,
+    lexeme: ?[]const u8 = undefined,
     line: u8,
 };
