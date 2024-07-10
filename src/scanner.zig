@@ -129,35 +129,32 @@ const Scanner = struct {
     fn scanToken(self: *Scanner) !void {
         const c = self.advance();
         switch (c) {
-            '(' => try self.addToken(TokenType.LEFT_PAREN, null),
-            ')' => try self.addToken(TokenType.RIGHT_PAREN, null),
-            '{' => try self.addToken(TokenType.LEFT_BRACE, null),
-            '}' => try self.addToken(TokenType.RIGHT_BRACE, null),
-            ',' => try self.addToken(TokenType.COMMA, null),
-            '.' => try self.addToken(TokenType.DOT, null),
-            '-' => try self.addToken(TokenType.MINUS, null),
-            '+' => try self.addToken(TokenType.PLUS, null),
-            ';' => try self.addToken(TokenType.SEMICOLON, null),
-            '*' => try self.addToken(TokenType.STAR, null),
-            '!' => try self.addToken(if (self.match('=')) TokenType.BANG_EQUAL else TokenType.BANG, null),
-            '=' => try self.addToken(if (self.match('=')) TokenType.EQUAL_EQUAL else TokenType.EQUAL, null),
-            '<' => try self.addToken(if (self.match('=')) TokenType.LESS_EQUAL else TokenType.LESS, null),
-            '>' => try self.addToken(if (self.match('=')) TokenType.GREATER_EQUAL else TokenType.GREATER, null),
+            '(' => try self.addToken(.LEFT_PAREN, null),
+            ')' => try self.addToken(.RIGHT_PAREN, null),
+            '{' => try self.addToken(.LEFT_BRACE, null),
+            '}' => try self.addToken(.RIGHT_BRACE, null),
+            ',' => try self.addToken(.COMMA, null),
+            '.' => try self.addToken(.DOT, null),
+            '-' => try self.addToken(.MINUS, null),
+            '+' => try self.addToken(.PLUS, null),
+            ';' => try self.addToken(.SEMICOLON, null),
+            '*' => try self.addToken(.STAR, null),
+            '!' => try self.addToken(if (self.match('=')) .BANG_EQUAL else .BANG, null),
+            '=' => try self.addToken(if (self.match('=')) .EQUAL_EQUAL else .EQUAL, null),
+            '<' => try self.addToken(if (self.match('=')) .LESS_EQUAL else .LESS, null),
+            '>' => try self.addToken(if (self.match('=')) .GREATER_EQUAL else .GREATER, null),
             '/' => {
                 if (self.match('/')) {
-                    while (self.peek() != '\n' and !self.isAtEnd()) {
+                    while (self.peek() != '\n' and !self.isAtEnd())
                         _ = self.advance();
-                    }
                 } else if (self.match('*')) {
-                    self.cStyle();
+                    try self.multiLineComment();
                 } else {
-                    try self.addToken(TokenType.SLASH, null);
+                    try self.addToken(.SLASH, null);
                 }
             },
             ' ', '\r', '\t' => {},
-            '\n' => {
-                self.line += 1;
-            },
+            '\n' => self.line += 1,
             '"' => try self.string(),
             else => {
                 if (isDigit(c)) {
@@ -171,14 +168,37 @@ const Scanner = struct {
         }
     }
 
-    fn cStyle(self: *Scanner) void {
-        while (self.peek() != '*' and self.peekNext() != '/' and !self.isAtEnd()) {
-            if (self.peek() == '\n') self.line += 1;
-            _ = self.advance();
+    // fn cStyle(self: *Scanner) void {
+    //     while (self.peek() != '*' and self.peekNext() != '/' and !self.isAtEnd()) {
+    //         if (self.peek() == '\n') self.line += 1;
+    //         _ = self.advance();
+    //     }
+    //     if (!self.isAtEnd()) {
+    //         _ = self.advance();
+    //         _ = self.advance();
+    //     }
+    // }
+
+    fn multiLineComment(self: *Scanner) !void {
+        var nesting: usize = 1;
+        while (nesting > 0 and !self.isAtEnd()) {
+            if (self.peek() == '/' and self.peekNext() == '*') {
+                _ = self.advance();
+                _ = self.advance();
+                nesting += 1;
+            } else if (self.peek() == '*' and self.peekNext() == '/') {
+                _ = self.advance();
+                _ = self.advance();
+                nesting -= 1;
+            } else if (self.peek() == '\n') {
+                self.line += 1;
+                _ = self.advance();
+            } else {
+                _ = self.advance();
+            }
         }
-        if (!self.isAtEnd()) {
-            _ = self.advance();
-            _ = self.advance();
+        if (self.isAtEnd() and nesting > 0) {
+            printerr(self.line, "Unterminated multi-line comment.");
         }
     }
 
@@ -201,7 +221,7 @@ const Scanner = struct {
         }
         _ = self.advance();
         const value = self.source[self.start + 1 .. self.current - 1];
-        try self.addToken(TokenType.STRING, obj{ .str = value });
+        try self.addToken(.STRING, obj{ .str = value });
     }
 
     fn number(self: *Scanner) !void {
@@ -213,7 +233,7 @@ const Scanner = struct {
         }
         const value = self.source[self.start..self.current];
         const num = try std.fmt.parseFloat(f64, value);
-        try self.addToken(TokenType.NUMBER, obj{ .num = num });
+        try self.addToken(.NUMBER, obj{ .num = num });
     }
 
     fn isAtEnd(self: *Scanner) bool {
@@ -251,20 +271,17 @@ const Scanner = struct {
     }
 
     fn match(self: *Scanner, expected: u8) bool {
-        if (self.isAtEnd()) return false;
-        if (self.source[self.current] != expected) return false;
+        if (self.isAtEnd() or self.source[self.current] != expected) return false;
         self.current += 1;
         return true;
     }
 
     fn peek(self: *Scanner) u8 {
-        if (self.isAtEnd()) return 0;
-        return self.source[self.current];
+        return if (self.isAtEnd()) 0 else self.source[self.current];
     }
 
     fn peekNext(self: *Scanner) u8 {
-        if (self.current + 1 >= self.source.len) return 0;
-        return self.source[self.current + 1];
+        return if (self.current + 1 >= self.source.len) 0 else self.source[self.current + 1];
     }
 
     fn printerr(line: usize, message: []const u8) void {
