@@ -77,30 +77,13 @@ const Scanner = struct {
     allocator: Allocator,
 
     pub fn init(allocator: Allocator, source: []const u8) !Scanner {
-        var keywords = StringHashMap(TokenType).init(allocator);
-        try keywords.put("and", .AND);
-        try keywords.put("class", .CLASS);
-        try keywords.put("else", .ELSE);
-        try keywords.put("false", .FALSE);
-        try keywords.put("for", .FOR);
-        try keywords.put("fun", .FUN);
-        try keywords.put("if", .IF);
-        try keywords.put("nil", .NIL);
-        try keywords.put("or", .OR);
-        try keywords.put("print", .PRINT);
-        try keywords.put("return", .RETURN);
-        try keywords.put("super", .SUPER);
-        try keywords.put("this", .THIS);
-        try keywords.put("true", .TRUE);
-        try keywords.put("var", .VAR);
-        try keywords.put("while", .WHILE);
         return .{
             .source = source,
             .tokens = ArrayList(Token).init(allocator),
             .start = 0,
             .current = 0,
             .line = 1,
-            .keywords = keywords,
+            .keywords = try initKeywords(allocator),
             .allocator = allocator,
         };
     }
@@ -167,17 +150,6 @@ const Scanner = struct {
             },
         }
     }
-
-    // fn cStyle(self: *Scanner) void {
-    //     while (self.peek() != '*' and self.peekNext() != '/' and !self.isAtEnd()) {
-    //         if (self.peek() == '\n') self.line += 1;
-    //         _ = self.advance();
-    //     }
-    //     if (!self.isAtEnd()) {
-    //         _ = self.advance();
-    //         _ = self.advance();
-    //     }
-    // }
 
     fn multiLineComment(self: *Scanner) !void {
         var nesting: usize = 1;
@@ -286,5 +258,26 @@ const Scanner = struct {
 
     fn printerr(line: usize, message: []const u8) void {
         print("Error {s} on line {}\n", .{ message, line });
+    }
+
+    fn initKeywords(allocator: Allocator) !StringHashMap(TokenType) {
+        var keywords = StringHashMap(TokenType).init(allocator);
+        try keywords.put("and", .AND);
+        try keywords.put("class", .CLASS);
+        try keywords.put("else", .ELSE);
+        try keywords.put("false", .FALSE);
+        try keywords.put("for", .FOR);
+        try keywords.put("fun", .FUN);
+        try keywords.put("if", .IF);
+        try keywords.put("nil", .NIL);
+        try keywords.put("or", .OR);
+        try keywords.put("print", .PRINT);
+        try keywords.put("return", .RETURN);
+        try keywords.put("super", .SUPER);
+        try keywords.put("this", .THIS);
+        try keywords.put("true", .TRUE);
+        try keywords.put("var", .VAR);
+        try keywords.put("while", .WHILE);
+        return keywords;
     }
 };
