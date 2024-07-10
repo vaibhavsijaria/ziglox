@@ -148,6 +148,8 @@ const Scanner = struct {
                     while (self.peek() != '\n' and !self.isAtEnd()) {
                         _ = self.advance();
                     }
+                } else if (self.match('*')) {
+                    self.cStyle();
                 } else {
                     try self.addToken(TokenType.SLASH, null);
                 }
@@ -166,6 +168,17 @@ const Scanner = struct {
                     printerr(self.line, "Unexpected character.");
                 }
             },
+        }
+    }
+
+    fn cStyle(self: *Scanner) void {
+        while (self.peek() != '*' and self.peekNext() != '/' and !self.isAtEnd()) {
+            if (self.peek() == '\n') self.line += 1;
+            _ = self.advance();
+        }
+        if (!self.isAtEnd()) {
+            _ = self.advance();
+            _ = self.advance();
         }
     }
 
