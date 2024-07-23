@@ -1,9 +1,9 @@
 const std = @import("std");
 const print = std.debug.print;
 
-const scanner = @import("scanner.zig");
-const runFile = scanner.runFile;
-const runPrompt = scanner.runPrompt;
+const run = @import("run.zig");
+const runFile = run.runFile;
+const runPrompt = run.runPrompt;
 
 pub fn main() !void {
     var args = std.process.args();
