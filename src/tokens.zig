@@ -53,6 +53,7 @@ pub const TokenType = enum {
 pub const obj = union(enum) {
     str: []const u8,
     num: f64,
+    boolean: bool,
 };
 
 pub const Token = struct {
