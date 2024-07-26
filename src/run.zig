@@ -55,6 +55,7 @@ pub fn run(allocator: Allocator, source: []const u8) !void {
             switch (literal) {
                 .str => |s| print(", literal: \"{s}\"", .{s}),
                 .num => |n| print(", literal: {d}", .{n}),
+                .boolean => |b| print(", boolean: {}", .{b}),
             }
         }
 
