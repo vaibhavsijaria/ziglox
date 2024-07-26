@@ -11,28 +11,32 @@ const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
 pub const Parser = struct {
+    allocator: Allocator,
     tokens: ArrayList(Token),
     current: usize,
 
-    pub fn init(tokens: ArrayList(Token)) Parser {
+    pub fn init(allocator: Allocator, tokens: ArrayList(Token)) Parser {
         return .{
+            .allocator = allocator,
             .tokens = tokens,
             .current = 0,
         };
     }
 
-    fn expression(self: *Parser) Expr {
-        return self.equality();
+    fn expression(self: *Parser) !*Expr {
+        return try self.equality();
     }
 
-    fn equality(self: *Parser) Expr {
-        var expr = self.comparison();
+    fn equality(self: *Parser) !*Expr {
+        var expr = try self.comparison();
 
-        while (self.match([]TokenType{ .BANG_EQUAL, .EQUAL_EQUAL })) {
+        while (self.match(&.{ .BANG_EQUAL, .EQUAL_EQUAL })) {
             const operator = self.previous();
-            const right = self.comparison();
-            expr = Exprs.Binary{
-                .left = expr,
+            const right = try self.comparison();
+            const left = expr;
+            expr = try self.allocator.create(Exprs.Binary);
+            expr.* = Exprs.Binary{
+                .left = left,
                 .operator = operator,
                 .right = right,
             };
@@ -40,19 +44,21 @@ pub const Parser = struct {
         return expr;
     }
 
-    fn comparison(self: *Parser) Expr {
-        var expr = self.term();
+    fn comparison(self: *Parser) !*Expr {
+        var expr = try self.term();
 
-        while (self.match([]TokenType{
+        while (self.match(&.{
             .GREATER,
             .GREATER_EQUAL,
             .LESS,
             .LESS_EQUAL,
         })) {
             const operator = self.previous();
-            const right = self.term();
-            expr = Exprs.Binary{
-                .left = expr,
+            const right = try self.term();
+            const left = expr;
+            expr = try self.allocator.create(Exprs.Binary);
+            expr.* = Exprs.Binary{
+                .left = left,
                 .operator = operator,
                 .right = right,
             };
@@ -61,14 +67,16 @@ pub const Parser = struct {
         return expr;
     }
 
-    fn term(self: *Parser) Expr {
-        var expr = self.factor();
+    fn term(self: *Parser) !*Expr {
+        var expr = try self.factor();
 
-        while (self.match([]TokenType{ .MINUS, .PLUS })) {
+        while (self.match(&.{ .MINUS, .PLUS })) {
             const operator = self.previous();
-            const right = self.factor();
-            expr = Exprs.Binary{
-                .left = expr,
+            const right = try self.factor();
+            const left = expr;
+            expr = try self.allocator.create(Exprs.Binary);
+            expr.* = Exprs.Binary{
+                .left = left,
                 .operator = operator,
                 .right = right,
             };
@@ -77,14 +85,16 @@ pub const Parser = struct {
         return expr;
     }
 
-    fn factor(self: *Parser) Expr {
-        var expr = self.unary();
+    fn factor(self: *Parser) !*Expr {
+        var expr = try self.unary();
 
-        while (self.match([]TokenType{ .SLASH, .STAR })) {
+        while (self.match(&.{ .SLASH, .STAR })) {
             const operator = self.previous();
-            const right = self.unary();
-            expr = Exprs.Binary{
-                .left = expr,
+            const right = try self.unary();
+            const left = expr;
+            expr = try self.allocator.create(Exprs.Binary);
+            expr.* = Exprs.Binary{
+                .left = left,
                 .operator = operator,
                 .right = right,
             };
@@ -93,52 +103,51 @@ pub const Parser = struct {
         return expr;
     }
 
-    fn unary(self: *Parser) Expr {
-        if (self.match([]TokenType{ .BANG, .MINUS })) {
+    fn unary(self: *Parser) !*Expr {
+        if (self.match(&.{ .BANG, .MINUS })) {
             const operator = self.previous();
-            const right = self.unary();
-            return Exprs.Unary{
+            const right = try self.unary();
+            const expr = try self.allocator.create(Exprs.Binary);
+            expr.* = Exprs.Unary{
                 .operator = operator,
                 .right = right,
             };
+            return expr;
         }
 
-        return self.primary();
+        return try self.primary();
     }
 
-    fn primary(self: *Parser) Expr {
-        if (self.match(&.{.FALSE})) return Exprs.Literal{
-            .value = obj{ .boolean = false },
-        };
+    fn primary(self: *Parser) !*Expr {
+        if (self.match(&.{.FALSE}))
+            return self.allocator.create(Expr.Literal{ .value = .{
+                .boolean = false,
+            } });
 
-        if (self.match(&.{.TRUE})) return Exprs.Literal{
-            .value = obj{ .boolean = true },
-        };
+        if (self.match(&.{.TRUE}))
+            return self.allocator.create(Expr.Literal{ .value = .{
+                .boolean = true,
+            } });
 
-        if (self.match(&.{.NIL})) return Exprs.Literal{
-            .value = null,
-        };
+        if (self.match(&.{.NIL}))
+            return self.allocator.create(Expr.Literal{ .value = null });
 
-        if (self.match(&.{.NUMBER})) return Exprs.Literal{
-            .value = obj{ .num = self.previous().literal.?.num },
-        };
-
-        if (self.match(&.{.STRING})) return Exprs.Literal{
-            .value = obj{ .num = self.previous().literal.?.str },
-        };
+        if (self.match(&.{ .NUMBER, .STRING })) return self.allocator.create(Exprs.Literal{
+            .value = self.previous().literal,
+        });
 
         if (self.match(&.{.LEFT_PAREN})) {
-            const expr = self.expression();
+            const expr = try self.expression();
             self.consume(.RIGHT_PAREN, "Expect ')' after expression.");
             return Exprs.Grouping{ .expression = expr };
         }
     }
 
-    fn match(self: *Parser, tTypes: []const TokenType) bool {
+    fn match(self: *Parser, comptime tTypes: []const TokenType) bool {
         for (tTypes) |tType| {
             if (self.check(tType)) {
                 _ = self.advance();
-                return true();
+                return true;
             }
         }
 
