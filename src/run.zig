@@ -1,6 +1,6 @@
 const std = @import("std");
 const Scanner = @import("scanner.zig").Scanner;
-
+const printTokens = @import("tools/printers.zig").printTokens;
 const Allocator = std.mem.Allocator;
 const fs = std.fs;
 const print = std.debug.print;
@@ -48,17 +48,5 @@ pub fn run(allocator: Allocator, source: []const u8) !void {
     defer scanner.deinit();
 
     const tokens = try scanner.scanTokens();
-    for (tokens.items) |token| {
-        print("line: {}, tType: {s}, lexeme: {s}", .{ token.line, @tagName(token.tType), token.lexeme.? });
-
-        if (token.literal) |literal| {
-            switch (literal) {
-                .str => |s| print(", literal: \"{s}\"", .{s}),
-                .num => |n| print(", literal: {d}", .{n}),
-                .boolean => |b| print(", boolean: {}", .{b}),
-            }
-        }
-
-        print("\n", .{});
-    }
+    printTokens(tokens);
 }
