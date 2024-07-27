@@ -1,12 +1,14 @@
 const std = @import("std");
 const Tokens = @import("tokens.zig");
 const Exprs = @import("expr.zig");
-const Error = @import("error.zig").Error;
+const Errors = @import("error.zig");
 
 const obj = Tokens.obj;
 const Expr = Exprs.Expr;
+const Error = Errors.Error;
 const Token = Tokens.Token;
 const TokenType = Tokens.TokenType;
+const ParseError = Errors.ParseError;
 const print = std.debug.print;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
@@ -22,6 +24,10 @@ pub const Parser = struct {
             .tokens = tokens,
             .current = 0,
         };
+    }
+
+    pub fn parse(self: *Parser) ?Expr {
+        return self.expression() catch null;
     }
 
     fn expression(self: *Parser) !*Expr {
@@ -139,9 +145,12 @@ pub const Parser = struct {
 
         if (self.match(&.{.LEFT_PAREN})) {
             const expr = try self.expression();
-            self.consume(.RIGHT_PAREN, "Expect ')' after expression.");
+            _ = self.consume(.RIGHT_PAREN, "Expect ')' after expression.") catch self.synchronize();
             return Exprs.Grouping{ .expression = expr };
         }
+
+        Error.printerr(self.peek(), "Expect expression");
+        return ParseError.ExpectExpr;
     }
 
     fn match(self: *Parser, comptime tTypes: []const TokenType) bool {
@@ -155,10 +164,37 @@ pub const Parser = struct {
         return false;
     }
 
-    fn consume(self: *Parser, tType: TokenType, msg: []const u8) ?Token {
+    fn consume(self: *Parser, tType: TokenType, msg: []const u8) !Token {
         if (self.check(tType)) return self.advance();
 
         Error.printerr(self.peek(), msg);
+        return switch (tType) {
+            .LEFT_PAREN, .RIGHT_PAREN => ParseError.MissingParen,
+            else => ParseError.GenericError,
+        };
+    }
+
+    fn synchronize(self: *Parser) void {
+        self.advance();
+
+        while (!self.isAtEnd()) {
+            if (self.previous().tType == .SEMICOLON) return;
+
+            switch (self.peek().tType) {
+                .CLASS,
+                .FUN,
+                .VAR,
+                .FOR,
+                .IF,
+                .WHILE,
+                .PRINT,
+                .RETURN,
+                => return,
+                else => {},
+            }
+
+            self.advance();
+        }
     }
 
     fn advance(self: *Parser) Token {

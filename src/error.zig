@@ -5,6 +5,12 @@ const Tokens = @import("tokens.zig");
 const Token = Tokens.Token;
 const TokenType = Tokens.TokenType;
 
+pub const ParseError = error{
+    MissingParen,
+    ExpectExpr,
+    GenericError,
+};
+
 pub const Error = struct {
     pub fn printerr(value: anytype, message: []const u8) void {
         switch (@TypeOf(value)) {
