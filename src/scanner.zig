@@ -1,5 +1,6 @@
 const std = @import("std");
 const Tokens = @import("tokens.zig");
+const Error = @import("error.zig").Error;
 
 const obj = Tokens.obj;
 const Token = Tokens.Token;
@@ -87,7 +88,7 @@ pub const Scanner = struct {
                 } else if (isAlpha(c)) {
                     try self.identifier();
                 } else {
-                    printerr(self.line, "Unexpected character.");
+                    Error.printerr(self.line, "Unexpected character");
                 }
             },
         }
@@ -112,7 +113,7 @@ pub const Scanner = struct {
             }
         }
         if (self.isAtEnd() and nesting > 0) {
-            printerr(self.line, "Unterminated multi-line comment.");
+            Error.printerr(self.line, "Unterminated multi-line comment");
         }
     }
 
@@ -130,7 +131,7 @@ pub const Scanner = struct {
             _ = self.advance();
         }
         if (self.isAtEnd()) {
-            printerr(self.line, "Unterminated string.");
+            Error.printerr(self.line, "Unterminated string");
             return;
         }
         _ = self.advance();
@@ -196,10 +197,6 @@ pub const Scanner = struct {
 
     fn peekNext(self: *Scanner) u8 {
         return if (self.current + 1 >= self.source.len) 0 else self.source[self.current + 1];
-    }
-
-    fn printerr(line: usize, message: []const u8) void {
-        print("Error {s} on line {}\n", .{ message, line });
     }
 
     fn initKeywords(allocator: Allocator) !StringHashMap(TokenType) {

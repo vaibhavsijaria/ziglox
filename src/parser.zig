@@ -1,6 +1,7 @@
 const std = @import("std");
 const Tokens = @import("tokens.zig");
 const Exprs = @import("expr.zig");
+const Error = @import("error.zig").Error;
 
 const obj = Tokens.obj;
 const Expr = Exprs.Expr;
@@ -152,6 +153,12 @@ pub const Parser = struct {
         }
 
         return false;
+    }
+
+    fn consume(self: *Parser, tType: TokenType, msg: []const u8) ?Token {
+        if (self.check(tType)) return self.advance();
+
+        Error.printerr(self.peek(), msg);
     }
 
     fn advance(self: *Parser) Token {
