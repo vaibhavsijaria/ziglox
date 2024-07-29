@@ -30,28 +30,29 @@ pub const Parser = struct {
         return self.expression() catch null;
     }
 
-    fn expression(self: *Parser) !*Expr {
+    fn expression(self: *Parser) !Expr {
         return try self.equality();
     }
 
-    fn equality(self: *Parser) !*Expr {
+    fn equality(self: *Parser) !Expr {
         var expr = try self.comparison();
 
         while (self.match(&.{ .BANG_EQUAL, .EQUAL_EQUAL })) {
             const operator = self.previous();
             const right = try self.comparison();
-            const left = expr;
-            expr = try self.allocator.create(Exprs.Binary);
-            expr.* = Exprs.Binary{
-                .left = left,
+            const binary = try self.allocator.create(Exprs.Binary);
+            binary.* = Exprs.Binary{
+                .left = expr,
                 .operator = operator,
                 .right = right,
             };
+            expr = Expr{ .Binary = binary };
         }
+
         return expr;
     }
 
-    fn comparison(self: *Parser) !*Expr {
+    fn comparison(self: *Parser) !Expr {
         var expr = try self.term();
 
         while (self.match(&.{
@@ -62,49 +63,50 @@ pub const Parser = struct {
         })) {
             const operator = self.previous();
             const right = try self.term();
-            const left = expr;
-            expr = try self.allocator.create(Exprs.Binary);
-            expr.* = Exprs.Binary{
-                .left = left,
+            // const left = expr;
+            const binary = try self.allocator.create(Exprs.Binary);
+            binary.* = Exprs.Binary{
+                .left = expr,
                 .operator = operator,
                 .right = right,
             };
+            expr = Expr{ .Binary = binary };
         }
 
         return expr;
     }
 
-    fn term(self: *Parser) !*Expr {
+    fn term(self: *Parser) !Expr {
         var expr = try self.factor();
 
         while (self.match(&.{ .MINUS, .PLUS })) {
             const operator = self.previous();
             const right = try self.factor();
-            const left = expr;
-            expr = try self.allocator.create(Exprs.Binary);
-            expr.* = Exprs.Binary{
-                .left = left,
+            const binary = try self.allocator.create(Exprs.Binary);
+            binary.* = Exprs.Binary{
+                .left = expr,
                 .operator = operator,
                 .right = right,
             };
+            expr = Expr{ .Binary = binary };
         }
 
         return expr;
     }
 
-    fn factor(self: *Parser) !*Expr {
+    fn factor(self: *Parser) !Expr {
         var expr = try self.unary();
 
         while (self.match(&.{ .SLASH, .STAR })) {
             const operator = self.previous();
             const right = try self.unary();
-            const left = expr;
-            expr = try self.allocator.create(Exprs.Binary);
-            expr.* = Exprs.Binary{
-                .left = left,
+            const binary = try self.allocator.create(Exprs.Binary);
+            binary.* = Exprs.Binary{
+                .left = expr,
                 .operator = operator,
                 .right = right,
             };
+            expr = Expr{ .Binary = binary };
         }
 
         return expr;
@@ -115,41 +117,36 @@ pub const Parser = struct {
             const operator = self.previous();
             const right = try self.unary();
             const unary_expr = try self.allocator.create(Exprs.Unary);
-            unary_expr.* = Exprs.Unary{
-                .operator = operator,
-                .right = right,
-            };
-            // const expr = try self.allocator.create(Expr);
-            const expr = Expr{ .Unary = unary_expr };
-            return expr;
+            unary_expr.* = .{ .operator = operator, .right = right };
+            return Expr{ .Unary = unary_expr };
         }
 
         return try self.primary();
     }
 
-    fn primary(self: *Parser) !*Expr {
+    fn primary(self: *Parser) anyerror!Expr {
         if (self.match(&.{.FALSE})) {
-            const expr = try self.allocator.create(Exprs.Literal);
-            expr.* = Exprs.Literal{ .value = .{ .boolean = false } };
-            return expr;
+            const literal = try self.allocator.create(Exprs.Literal);
+            literal.* = Exprs.Literal{ .value = obj{ .boolean = false } };
+            return Expr{ .Literal = literal };
         }
 
         if (self.match(&.{.TRUE})) {
-            const expr = try self.allocator.create(Exprs.Literal);
-            expr.* = Exprs.Literal{ .value = .{ .boolean = true } };
-            return expr;
+            const literal = try self.allocator.create(Exprs.Literal);
+            literal.* = Exprs.Literal{ .value = obj{ .boolean = true } };
+            return Expr{ .Literal = literal };
         }
 
         if (self.match(&.{.NIL})) {
-            const expr = try self.allocator.create(Exprs.Literal);
-            expr.* = Exprs.Literal{ .value = null };
-            return expr;
+            const literal = try self.allocator.create(Exprs.Literal);
+            literal.* = Exprs.Literal{ .value = null };
+            return Expr{ .Literal = literal };
         }
 
         if (self.match(&.{ .NUMBER, .STRING })) {
-            const expr = try self.allocator.create(Exprs.Literal);
-            expr.* = Exprs.Literal{ .value = self.previous().literal };
-            return expr;
+            const literal = try self.allocator.create(Exprs.Literal);
+            literal.* = Exprs.Literal{ .value = self.previous().literal };
+            return Expr{ .Literal = literal };
         }
 
         if (self.match(&.{.LEFT_PAREN})) {
@@ -157,7 +154,7 @@ pub const Parser = struct {
             _ = self.consume(.RIGHT_PAREN, "Expect ')' after expression.") catch self.synchronize();
             const grouping = try self.allocator.create(Exprs.Grouping);
             grouping.* = Exprs.Grouping{ .expression = expr };
-            return grouping;
+            return Expr{ .Grouping = grouping };
         }
 
         Error.printerr(self.peek(), "Expect expression");
@@ -186,7 +183,7 @@ pub const Parser = struct {
     }
 
     fn synchronize(self: *Parser) void {
-        self.advance();
+        _ = self.advance();
 
         while (!self.isAtEnd()) {
             if (self.previous().tType == .SEMICOLON) return;
@@ -204,7 +201,7 @@ pub const Parser = struct {
                 else => {},
             }
 
-            self.advance();
+            _ = self.advance();
         }
     }
 

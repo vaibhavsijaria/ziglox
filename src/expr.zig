@@ -10,7 +10,7 @@ pub const Expr = union(enum) {
     Literal: *Literal,
     Unary: *Unary,
 
-    pub fn accept(self: Expr, visitor: anytype) []u8 {
+    pub fn accept(self: Expr, visitor: anytype) @TypeOf(visitor.rtype) {
         return switch (self) {
             .Binary => |b| visitor.visitBinaryExpr(b),
             .Grouping => |g| visitor.visitGroupingExpr(g),
@@ -21,13 +21,13 @@ pub const Expr = union(enum) {
 };
 
 pub const Binary = struct {
-    left: *Expr,
+    left: Expr,
     operator: Token,
-    right: *Expr,
+    right: Expr,
 };
 
 pub const Grouping = struct {
-    expression: *Expr,
+    expression: Expr,
 };
 
 pub const Literal = struct {
@@ -36,5 +36,5 @@ pub const Literal = struct {
 
 pub const Unary = struct {
     operator: Token,
-    right: *Expr,
+    right: Expr,
 };

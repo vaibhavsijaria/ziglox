@@ -53,7 +53,7 @@ pub fn run(allocator: Allocator, source: []const u8) !void {
     const tokens = try scanner.scanTokens();
     // printTokens(tokens);
     var parser = Parser.init(allocator, tokens);
-    var expr = parser.parse().?;
-    var printer = AstPrinter.init(allocator);
-    print("{}", .{try printer.print(&expr)});
+    const expr = parser.parse().?;
+    var astPrinter = AstPrinter.init(allocator);
+    print("{s}", .{astPrinter.print(expr)});
 }
