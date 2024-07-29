@@ -110,15 +110,17 @@ pub const Parser = struct {
         return expr;
     }
 
-    fn unary(self: *Parser) !*Expr {
+    fn unary(self: *Parser) !Expr {
         if (self.match(&.{ .BANG, .MINUS })) {
             const operator = self.previous();
             const right = try self.unary();
-            const expr = try self.allocator.create(Exprs.Binary);
-            expr.* = Exprs.Unary{
+            const unary_expr = try self.allocator.create(Exprs.Unary);
+            unary_expr.* = Exprs.Unary{
                 .operator = operator,
                 .right = right,
             };
+            // const expr = try self.allocator.create(Expr);
+            const expr = Expr{ .Unary = unary_expr };
             return expr;
         }
 
@@ -126,27 +128,36 @@ pub const Parser = struct {
     }
 
     fn primary(self: *Parser) !*Expr {
-        if (self.match(&.{.FALSE}))
-            return self.allocator.create(Expr.Literal{ .value = .{
-                .boolean = false,
-            } });
+        if (self.match(&.{.FALSE})) {
+            const expr = try self.allocator.create(Exprs.Literal);
+            expr.* = Exprs.Literal{ .value = .{ .boolean = false } };
+            return expr;
+        }
 
-        if (self.match(&.{.TRUE}))
-            return self.allocator.create(Expr.Literal{ .value = .{
-                .boolean = true,
-            } });
+        if (self.match(&.{.TRUE})) {
+            const expr = try self.allocator.create(Exprs.Literal);
+            expr.* = Exprs.Literal{ .value = .{ .boolean = true } };
+            return expr;
+        }
 
-        if (self.match(&.{.NIL}))
-            return self.allocator.create(Expr.Literal{ .value = null });
+        if (self.match(&.{.NIL})) {
+            const expr = try self.allocator.create(Exprs.Literal);
+            expr.* = Exprs.Literal{ .value = null };
+            return expr;
+        }
 
-        if (self.match(&.{ .NUMBER, .STRING })) return self.allocator.create(Exprs.Literal{
-            .value = self.previous().literal,
-        });
+        if (self.match(&.{ .NUMBER, .STRING })) {
+            const expr = try self.allocator.create(Exprs.Literal);
+            expr.* = Exprs.Literal{ .value = self.previous().literal };
+            return expr;
+        }
 
         if (self.match(&.{.LEFT_PAREN})) {
             const expr = try self.expression();
             _ = self.consume(.RIGHT_PAREN, "Expect ')' after expression.") catch self.synchronize();
-            return Exprs.Grouping{ .expression = expr };
+            const grouping = try self.allocator.create(Exprs.Grouping);
+            grouping.* = Exprs.Grouping{ .expression = expr };
+            return grouping;
         }
 
         Error.printerr(self.peek(), "Expect expression");

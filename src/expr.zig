@@ -10,7 +10,7 @@ pub const Expr = union(enum) {
     Literal: *Literal,
     Unary: *Unary,
 
-    pub fn accept(self: Expr, visitor: anytype) @TypeOf(visitor).ReturnType {
+    pub fn accept(self: Expr, visitor: anytype) []u8 {
         return switch (self) {
             .Binary => |b| visitor.visitBinaryExpr(b),
             .Grouping => |g| visitor.visitGroupingExpr(g),
