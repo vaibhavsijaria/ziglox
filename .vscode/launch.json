@@ -8,7 +8,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug",
-            "program": "./zig-out/bin/ziglox",
+            "program": "${workspaceFolder}/zig-out/bin/ziglox",
             "args": [""],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "build",

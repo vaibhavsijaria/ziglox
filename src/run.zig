@@ -1,6 +1,9 @@
 const std = @import("std");
+const Printer = @import("tools/printers.zig");
 const Scanner = @import("scanner.zig").Scanner;
-const printTokens = @import("tools/printers.zig").printTokens;
+const Parser = @import("parser.zig").Parser;
+const printTokens = Printer.printTokens;
+const AstPrinter = Printer.AstPrinter;
 const Allocator = std.mem.Allocator;
 const fs = std.fs;
 const print = std.debug.print;
@@ -36,7 +39,7 @@ pub fn runPrompt(allocator: Allocator) !void {
             const prompt = try allocator.dupe(u8, buffer.buffer[0..n]);
             _ = try run(allocator, prompt);
         } else |_| {
-            print("Exiting...", .{});
+            print("Exiting...\n", .{});
             break;
         }
         buffer.reset();
@@ -48,5 +51,12 @@ pub fn run(allocator: Allocator, source: []const u8) !void {
     defer scanner.deinit();
 
     const tokens = try scanner.scanTokens();
+    print("Tokens: ", .{});
     printTokens(tokens);
+    var parser = Parser.init(allocator, tokens);
+    const expr = parser.parse() orelse return;
+    var astPrinter = AstPrinter.init(allocator);
+    print("Parsed Expressions: ", .{});
+    astPrinter.print(expr);
+    print("\n", .{});
 }
