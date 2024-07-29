@@ -55,5 +55,6 @@ pub fn run(allocator: Allocator, source: []const u8) !void {
     var parser = Parser.init(allocator, tokens);
     const expr = parser.parse() orelse return;
     var astPrinter = AstPrinter.init(allocator);
-    print("{s}\n", .{try astPrinter.print(expr)});
+    astPrinter.print(expr);
+    print("\n", .{});
 }

@@ -32,28 +32,30 @@ pub const AstPrinter = struct {
         return .{ .allocator = allocator };
     }
 
-    pub fn print(self: *AstPrinter, expr: Expr) ![]u8 {
-        return switch (expr) {
+    pub fn print(self: *AstPrinter, expr: Expr) void {
+        switch (expr) {
             .Binary => |b| self.parenthesize(b.operator.lexeme.?, &.{ b.left, b.right }),
             .Unary => |u| self.parenthesize(u.operator.lexeme.?, &.{u.right}),
-            .Literal => |l| if (l.value) |v| std.fmt.allocPrint(self.allocator, "{any}", .{v}) else std.fmt.allocPrint(self.allocator, "null", .{}),
+            .Literal => |l| if (l.value) |v| printLiteral(v) else std.debug.print("null", .{}),
             .Grouping => |g| self.parenthesize("group", &.{g.expression}),
-        };
+        }
     }
 
-    fn parenthesize(self: *AstPrinter, name: []const u8, exprs: []const Expr) anyerror![]u8 {
-        var list = std.ArrayList(u8).init(self.allocator);
-        defer list.deinit();
+    fn parenthesize(self: *AstPrinter, name: []const u8, exprs: []const Expr) void {
+        std.debug.print("({s}", .{name});
 
-        try list.writer().print("({s}", .{name});
         for (exprs) |expr| {
-            try list.appendSlice(" ");
-            const result = try self.print(expr);
-            defer self.allocator.free(result);
-            try list.appendSlice(result);
+            std.debug.print(" ", .{});
+            self.print(expr);
         }
-        try list.appendSlice(")");
+        std.debug.print(")", .{});
+    }
 
-        return list.toOwnedSlice();
+    fn printLiteral(literal: obj) void {
+        switch (literal) {
+            .str => |s| std.debug.print("\"{s}\"", .{s}),
+            .num => |n| std.debug.print("{d}", .{n}),
+            .boolean => |b| std.debug.print("{}", .{b}),
+        }
     }
 };
