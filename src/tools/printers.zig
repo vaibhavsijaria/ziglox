@@ -11,7 +11,7 @@ const Expr = Exprs.Expr;
 
 pub fn printTokens(tokens: ArrayList(Token)) void {
     for (tokens.items) |token| {
-        print("line: {}, tType: {s}, lexeme.?: {s}", .{ token.line, @tagName(token.tType), token.lexeme.?.? });
+        print("line: {}, tType: {s}, lexeme: {s}", .{ token.line, @tagName(token.tType), token.lexeme.? });
 
         if (token.literal) |literal| {
             switch (literal) {

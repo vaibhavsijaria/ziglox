@@ -39,7 +39,7 @@ pub fn runPrompt(allocator: Allocator) !void {
             const prompt = try allocator.dupe(u8, buffer.buffer[0..n]);
             _ = try run(allocator, prompt);
         } else |_| {
-            print("Exiting...", .{});
+            print("Exiting...\n", .{});
             break;
         }
         buffer.reset();
@@ -51,10 +51,12 @@ pub fn run(allocator: Allocator, source: []const u8) !void {
     defer scanner.deinit();
 
     const tokens = try scanner.scanTokens();
-    // printTokens(tokens);
+    print("Tokens: ", .{});
+    printTokens(tokens);
     var parser = Parser.init(allocator, tokens);
     const expr = parser.parse() orelse return;
     var astPrinter = AstPrinter.init(allocator);
+    print("Parsed Expressions: ", .{});
     astPrinter.print(expr);
     print("\n", .{});
 }
