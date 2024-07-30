@@ -31,7 +31,24 @@ pub const Parser = struct {
     }
 
     fn expression(self: *Parser) !Expr {
-        return try self.equality();
+        return try self.comma();
+    }
+
+    fn comma(self: *Parser) !Expr {
+        var expr = try self.equality();
+
+        while (self.match(&.{.COMMA})) {
+            const operator = self.previous();
+            const right = try self.equality();
+            const binary = try self.allocator.create(Exprs.Binary);
+            binary.* = Exprs.Binary{
+                .left = expr,
+                .operator = operator,
+                .right = right,
+            };
+            expr = Expr{ .Binary = binary };
+        }
+        return expr;
     }
 
     fn equality(self: *Parser) !Expr {

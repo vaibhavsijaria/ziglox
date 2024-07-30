@@ -51,7 +51,7 @@ pub fn run(allocator: Allocator, source: []const u8) !void {
     defer scanner.deinit();
 
     const tokens = try scanner.scanTokens();
-    print("Tokens: ", .{});
+    print("Tokens:\n", .{});
     printTokens(tokens);
     var parser = Parser.init(allocator, tokens);
     const expr = parser.parse() orelse return;
