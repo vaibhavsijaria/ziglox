@@ -65,6 +65,8 @@ pub const Scanner = struct {
             '+' => try self.addToken(.PLUS, null),
             ';' => try self.addToken(.SEMICOLON, null),
             '*' => try self.addToken(.STAR, null),
+            '?' => try self.addToken(.QUESTION_MARK, null),
+            ':' => try self.addToken(.COLON, null),
             '!' => try self.addToken(if (self.match('=')) .BANG_EQUAL else .BANG, null),
             '=' => try self.addToken(if (self.match('=')) .EQUAL_EQUAL else .EQUAL, null),
             '<' => try self.addToken(if (self.match('=')) .LESS_EQUAL else .LESS, null),

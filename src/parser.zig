@@ -31,7 +31,27 @@ pub const Parser = struct {
     }
 
     fn expression(self: *Parser) !Expr {
-        return try self.comma();
+        return try self.conditional();
+    }
+
+    fn conditional(self: *Parser) anyerror!Expr {
+        var expr = try self.comma();
+
+        if (self.match(&.{.QUESTION_MARK})) {
+            const then_branch = try self.expression();
+            _ = try self.consume(.COLON, "Expect ':' after conditional expression.");
+            const else_branch = try self.conditional();
+
+            const ternary = try self.allocator.create(Exprs.Ternary);
+            ternary.* = Exprs.Ternary{
+                .condition = expr,
+                .then_branch = then_branch,
+                .else_branch = else_branch,
+            };
+            expr = Expr{ .Ternary = ternary };
+        }
+
+        return expr;
     }
 
     fn comma(self: *Parser) !Expr {

@@ -38,6 +38,7 @@ pub const AstPrinter = struct {
             .Unary => |u| self.parenthesize(u.operator.lexeme.?, &.{u.right}),
             .Literal => |l| if (l.value) |v| printLiteral(v) else std.debug.print("null", .{}),
             .Grouping => |g| self.parenthesize("group", &.{g.expression}),
+            .Ternary => |t| self.printTernary(t),
         }
     }
 
@@ -57,5 +58,15 @@ pub const AstPrinter = struct {
             .num => |n| std.debug.print("{d}", .{n}),
             .boolean => |b| std.debug.print("{}", .{b}),
         }
+    }
+
+    fn printTernary(self: *AstPrinter, ternary: *Exprs.Ternary) void {
+        std.debug.print("(? ", .{});
+        self.print(ternary.condition);
+        std.debug.print(" ", .{});
+        self.print(ternary.then_branch);
+        std.debug.print(" ", .{});
+        self.print(ternary.else_branch);
+        std.debug.print(")", .{});
     }
 };
