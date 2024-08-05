@@ -31,16 +31,33 @@ pub const Parser = struct {
     }
 
     fn expression(self: *Parser) !Expr {
-        return try self.conditional();
+        return try self.comma();
+    }
+
+    fn comma(self: *Parser) !Expr {
+        var expr = try self.conditional();
+
+        while (self.match(&.{.COMMA})) {
+            const operator = self.previous();
+            const right = try self.conditional();
+            const binary = try self.allocator.create(Exprs.Binary);
+            binary.* = Exprs.Binary{
+                .left = expr,
+                .operator = operator,
+                .right = right,
+            };
+            expr = Expr{ .Binary = binary };
+        }
+        return expr;
     }
 
     fn conditional(self: *Parser) anyerror!Expr {
-        var expr = try self.comma();
+        var expr = try self.equality();
 
         if (self.match(&.{.QUESTION_MARK})) {
             const then_branch = try self.expression();
             _ = try self.consume(.COLON, "Expect ':' after conditional expression.");
-            const else_branch = try self.conditional();
+            const else_branch = try self.equality();
 
             const ternary = try self.allocator.create(Exprs.Ternary);
             ternary.* = Exprs.Ternary{
@@ -51,23 +68,6 @@ pub const Parser = struct {
             expr = Expr{ .Ternary = ternary };
         }
 
-        return expr;
-    }
-
-    fn comma(self: *Parser) !Expr {
-        var expr = try self.equality();
-
-        while (self.match(&.{.COMMA})) {
-            const operator = self.previous();
-            const right = try self.equality();
-            const binary = try self.allocator.create(Exprs.Binary);
-            binary.* = Exprs.Binary{
-                .left = expr,
-                .operator = operator,
-                .right = right,
-            };
-            expr = Expr{ .Binary = binary };
-        }
         return expr;
     }
 
@@ -100,7 +100,6 @@ pub const Parser = struct {
         })) {
             const operator = self.previous();
             const right = try self.term();
-            // const left = expr;
             const binary = try self.allocator.create(Exprs.Binary);
             binary.* = Exprs.Binary{
                 .left = expr,
