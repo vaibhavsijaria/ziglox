@@ -161,35 +161,45 @@ pub const Parser = struct {
 
     fn primary(self: *Parser) anyerror!*Expr {
         const primary_expr = try self.allocator.create(Exprs.Expr);
-        if (self.match(&.{.FALSE})) {
-            primary_expr.* = Expr{ .Literal = Exprs.Literal{ .value = obj{ .boolean = false } } };
-            return primary_expr;
-        }
 
-        if (self.match(&.{.TRUE})) {
-            primary_expr.* = Expr{ .Literal = Exprs.Literal{ .value = obj{ .boolean = true } } };
-            return primary_expr;
-        }
-
-        if (self.match(&.{.NIL})) {
-            primary_expr.* = Expr{ .Literal = Exprs.Literal{ .value = null } };
-            return primary_expr;
-        }
-
-        if (self.match(&.{ .NUMBER, .STRING })) {
-            primary_expr.* = Expr{ .Literal = Exprs.Literal{ .value = self.previous().literal } };
+        if (self.matchLiteral()) |literal| {
+            primary_expr.* = literal;
             return primary_expr;
         }
 
         if (self.match(&.{.LEFT_PAREN})) {
-            const expr = try self.expression();
-            _ = self.consume(.RIGHT_PAREN, "Expect ')' after expression.") catch self.synchronize();
-            primary_expr.* = Expr{ .Grouping = Exprs.Grouping{ .expression = expr } };
-            return primary_expr;
+            return self.grouping(primary_expr);
         }
 
         Error.printerr(self.peek(), "Expect expression");
         return ParseError.ExpectExpr;
+    }
+
+    fn matchLiteral(self: *Parser) ?Expr {
+        if (self.match(&.{.FALSE})) {
+            return Expr{ .Literal = Exprs.Literal{ .value = obj{ .boolean = false } } };
+        }
+
+        if (self.match(&.{.TRUE})) {
+            return Expr{ .Literal = Exprs.Literal{ .value = obj{ .boolean = true } } };
+        }
+
+        if (self.match(&.{.NIL})) {
+            return Expr{ .Literal = Exprs.Literal{ .value = null } };
+        }
+
+        if (self.match(&.{ .NUMBER, .STRING })) {
+            return Expr{ .Literal = Exprs.Literal{ .value = self.previous().literal } };
+        }
+
+        return null;
+    }
+
+    fn grouping(self: *Parser, primary_expr: *Expr) !*Expr {
+        const expr = try self.expression();
+        _ = self.consume(.RIGHT_PAREN, "Expect ')' after expression.") catch self.synchronize();
+        primary_expr.* = Expr{ .Grouping = Exprs.Grouping{ .expression = expr } };
+        return primary_expr;
     }
 
     fn match(self: *Parser, comptime tTypes: []const TokenType) bool {
