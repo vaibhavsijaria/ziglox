@@ -32,8 +32,8 @@ pub const AstPrinter = struct {
         return .{ .allocator = allocator };
     }
 
-    pub fn print(self: *AstPrinter, expr: Expr) void {
-        switch (expr) {
+    pub fn print(self: *AstPrinter, expr: *Expr) void {
+        switch (expr.*) {
             .Binary => |b| self.parenthesize(b.operator.lexeme.?, &.{ b.left, b.right }),
             .Unary => |u| self.parenthesize(u.operator.lexeme.?, &.{u.right}),
             .Literal => |l| if (l.value) |v| printLiteral(v) else std.debug.print("null", .{}),
@@ -42,7 +42,7 @@ pub const AstPrinter = struct {
         }
     }
 
-    fn parenthesize(self: *AstPrinter, name: []const u8, exprs: []const Expr) void {
+    fn parenthesize(self: *AstPrinter, name: []const u8, exprs: []const *Expr) void {
         std.debug.print("({s}", .{name});
 
         for (exprs) |expr| {
@@ -60,7 +60,7 @@ pub const AstPrinter = struct {
         }
     }
 
-    fn printTernary(self: *AstPrinter, ternary: *Exprs.Ternary) void {
+    fn printTernary(self: *AstPrinter, ternary: Exprs.Ternary) void {
         std.debug.print("(? ", .{});
         self.print(ternary.condition);
         std.debug.print(" ", .{});
