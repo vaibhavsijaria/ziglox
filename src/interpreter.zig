@@ -7,8 +7,17 @@ const obj = Tokens.obj;
 const Expr = Exprs.Expr;
 const Token = Tokens.Token;
 const TokenType = Tokens.TokenType;
+const Allocator = std.mem.Allocator;
 
 pub const Interpreter = struct {
+    allocator: Allocator,
+
+    pub fn init(allocator: Allocator) Interpreter {
+        return .{
+            .allocator = allocator,
+        };
+    }
+
     fn interpret(self: *Interpreter, expr: *Expr) ?obj {
         return switch (expr.*) {
             .Binary => |b| self.binary(b),
@@ -38,7 +47,49 @@ pub const Interpreter = struct {
                     else => null,
                 } else null;
             },
-            .BANG => {},
+            .BANG => obj{ .boolean = !truthVal(right) },
         };
+    }
+
+    fn binary(self: *Interpreter, expr: Exprs.Binary) ?obj {
+        const left = self.interpret(expr.left);
+        const right = self.interpret(expr.right);
+
+        if (@intFromEnum(left) != @intFromEnum(right)) {
+            // some error
+        }
+
+        return switch (expr.operator.tType) {
+            .MINUS => {
+                switch (left) {
+                    .num => |l| {
+                        const r = right.num;
+                        obj{ .num = l - r };
+                    },
+                    else => {
+                        // some error
+                    },
+                }
+            },
+            .PLUS => {
+                switch (left) {
+                    .num => |l| {
+                        const r = right.num;
+                        obj{ .num = l + r };
+                    },
+                    .str => |l| {
+                        const r = right.str;
+                        std.fmt.allocPrint(self.allocator, "{s}{s}", .{ l, r });
+                    },
+                }
+            },
+        };
+    }
+
+    fn truthVal(value: ?obj) bool {
+        return if (value) |v| switch (v) {
+            .boolean => |b| b,
+            else => true,
+        } else false;
     }
 };
