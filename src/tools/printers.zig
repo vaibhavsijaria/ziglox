@@ -25,6 +25,18 @@ pub fn printTokens(tokens: ArrayList(Token)) void {
     }
 }
 
+pub fn printObj(value: ?obj) void {
+    if (value) |v| {
+        switch (v) {
+            .str => |s| print("string: \"{s}\"", .{s}),
+            .num => |n| print("float: {d}", .{n}),
+            .boolean => |b| print("boolean: {}", .{b}),
+        }
+    } else print("nil", .{});
+
+    print("\n", .{});
+}
+
 pub const AstPrinter = struct {
     allocator: Allocator,
 

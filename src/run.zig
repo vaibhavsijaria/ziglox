@@ -2,7 +2,9 @@ const std = @import("std");
 const Printer = @import("tools/printers.zig");
 const Scanner = @import("scanner.zig").Scanner;
 const Parser = @import("parser.zig").Parser;
+const Interpreter = @import("interpreter.zig").Interpreter;
 const printTokens = Printer.printTokens;
+const printObj = Printer.printObj;
 const AstPrinter = Printer.AstPrinter;
 const Allocator = std.mem.Allocator;
 const fs = std.fs;
@@ -53,10 +55,16 @@ pub fn run(allocator: Allocator, source: []const u8) !void {
     const tokens = try scanner.scanTokens();
     print("Tokens:\n", .{});
     printTokens(tokens);
+
     var parser = Parser.init(allocator, tokens);
     const expr = parser.parse() orelse return;
+
     var astPrinter = AstPrinter.init(allocator);
     print("Parsed Expressions: ", .{});
     astPrinter.print(expr);
     print("\n", .{});
+
+    var interpreter = Interpreter.init(allocator);
+    const val = try interpreter.interpret(expr);
+    printObj(val);
 }
