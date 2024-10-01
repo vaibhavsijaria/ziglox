@@ -1,0 +1,85 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: ziglox-linux-amd64
+          - os: windows-latest
+            artifact_name: ziglox-windows-amd64.exe
+          - os: macos-latest
+            artifact_name: ziglox-macos-amd64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Zig Compiler
+        uses: mlugg/setup-zig@v1.2.1
+
+      - name: Build
+        run: zig build -Doptimize=ReleaseSafe
+
+      - name: Rename binary
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            mv zig-out/bin/ziglox.exe zig-out/bin/${{ matrix.artifact_name }}
+          else
+            mv zig-out/bin/ziglox zig-out/bin/${{ matrix.artifact_name }}
+          fi
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: zig-out/bin/${{ matrix.artifact_name }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Move artifacts to root of release-assets
+        run: |
+          find release-assets -type f -exec mv {} release-assets/ \;
+          find release-assets -type d -empty -delete
+      - name: Generate SHA256 checksums
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
+      - name: Create release notes
+        run: |
+          echo "## Ziglox ${{ github.ref_name }}" > release-notes.md
+          echo "" >> release-notes.md
+          echo "**SHA256 Checksums**:" >> release-notes.md
+          echo '```' >> release-notes.md
+          cat release-assets/SHA256SUMS.txt >> release-notes.md
+          echo '```' >> release-notes.md
+  
+      - name: Create release
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          artifacts: "release-assets/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Release ${{ github.ref_name }}
+          bodyFile: release-notes.md
+          draft: false
+          prerelease: false
+          generateReleaseNotes: false

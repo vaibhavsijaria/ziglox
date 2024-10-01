@@ -6,12 +6,13 @@ const runFile = run.runFile;
 const runPrompt = run.runPrompt;
 
 pub fn main() !void {
-    var args = std.process.args();
-    _ = args.next().?;
-
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
+
+    var args = try std.process.argsWithAllocator(allocator);
+    defer args.deinit();
+    _ = args.next().?;
 
     if (args.next()) |path| {
         if (args.skip()) {

@@ -1,11 +1,14 @@
 const std = @import("std");
 const Printer = @import("tools/printers.zig");
+
 const Scanner = @import("scanner.zig").Scanner;
 const Parser = @import("parser.zig").Parser;
 const Interpreter = @import("interpreter.zig").Interpreter;
+
 const printTokens = Printer.printTokens;
 const printObj = Printer.printObj;
 const AstPrinter = Printer.AstPrinter;
+
 const Allocator = std.mem.Allocator;
 const fs = std.fs;
 const print = std.debug.print;
