@@ -44,44 +44,78 @@ pub const Interpreter = struct {
             .MINUS => {
                 if (right) |v| switch (v) {
                     .num => |n| obj{ .num = -n },
-                    else => null,
-                } else null;
+                    else => null, // some error
+                } else null; // some error
             },
             .BANG => obj{ .boolean = !truthVal(right) },
         };
     }
 
     fn binary(self: *Interpreter, expr: Exprs.Binary) ?obj {
-        const left = self.interpret(expr.left);
-        const right = self.interpret(expr.right);
+        const left = self.interpret(expr.left) orelse return null; // some error
+        const right = self.interpret(expr.right) orelse return null; // some error
 
         if (@intFromEnum(left) != @intFromEnum(right)) {
             // some error
         }
 
-        return switch (expr.operator.tType) {
-            .MINUS => {
-                switch (left) {
-                    .num => |l| {
-                        const r = right.num;
-                        obj{ .num = l - r };
+        switch (left) {
+            .str => |l| {
+                return switch (expr.operator.tType) {
+                    .PLUS => {
+                        obj{ .str = try std.fmt.allocPrint(self.allocator, "{s}{s}", .{ l, right.str }) };
                     },
-                    else => {
-                        // some error
-                    },
-                }
+                    else => null, // some error
+                };
             },
-            .PLUS => {
-                switch (left) {
-                    .num => |l| {
-                        const r = right.num;
-                        obj{ .num = l + r };
+            .num => |l| {
+                return switch (expr.operator.tType) {
+                    .PLUS => {
+                        obj{ .num = l + right.num };
                     },
-                    .str => |l| {
-                        const r = right.str;
-                        std.fmt.allocPrint(self.allocator, "{s}{s}", .{ l, r });
+                    .MINUS => {
+                        obj{ .num = l - right.num };
                     },
-                }
+                    .STAR => {
+                        obj{ .num = l * right.num };
+                    },
+                    .SLASH => {
+                        obj{ .num = l / right.num };
+                    },
+
+                    .GREATER => {
+                        obj{ .boolean = l > right.num };
+                    },
+                    .GREATER_EQUAL => {
+                        obj{ .boolean = l >= right.num };
+                    },
+                    .LESS => {
+                        obj{ .boolean = l < right.num };
+                    },
+                    .LESS_EQUAL => {
+                        obj{ .boolean = l <= right.num };
+                    },
+                    .EQUAL_EQUAL => {
+                        obj{ .boolean = isEqual(left, right) };
+                    },
+                    .BANG_EQUAL => {
+                        obj{ .boolean = !isEqual(left, right) };
+                    },
+                };
+            },
+        }
+    }
+
+    fn isEqual(val1: obj, val2: obj) bool {
+        return switch (val1) {
+            .num => |v1| {
+                v1 == val2.num;
+            },
+            .str => |v1| {
+                std.mem.eql(u8, v1, val2.str);
+            },
+            .boolean => |v1| {
+                v1 == val2.boolean;
             },
         };
     }
