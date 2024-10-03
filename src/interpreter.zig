@@ -65,11 +65,11 @@ pub const Interpreter = struct {
     fn binary(self: *Interpreter, expr: Exprs.Binary) anyerror!?obj {
         const left = self.interpret(expr.left) orelse {
             Error.printerr(expr.operator, "Error while interpreting left operand");
-            return null;
+            return RuntimeErrors.NullType;
         };
         const right = self.interpret(expr.right) orelse {
-            Error.printerr(expr.operator, "Error while interpreting left operand");
-            return null;
+            Error.printerr(expr.operator, "Error while interpreting right operand");
+            return RuntimeErrors.NullType;
         };
 
         if (@intFromEnum(left) != @intFromEnum(right)) {

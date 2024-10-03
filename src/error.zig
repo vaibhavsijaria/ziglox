@@ -14,6 +14,7 @@ pub const ParseError = error{
 pub const RuntimeError = error{
     IncompatibleTypes,
     InvalidOperation,
+    NullType,
 };
 
 pub const Error = struct {
