@@ -89,7 +89,13 @@ pub const Interpreter = struct {
                 .PLUS => obj{ .num = l + right.num },
                 .MINUS => obj{ .num = l - right.num },
                 .STAR => obj{ .num = l * right.num },
-                .SLASH => obj{ .num = l / right.num },
+                .SLASH => slash: {
+                    if (right.num == 0) {
+                        Error.printerr(expr.operator, "Division by zero");
+                        break :slash RuntimeErrors.DivisionByZero;
+                    }
+                    break :slash obj{ .num = l / right.num };
+                },
                 .GREATER => obj{ .boolean = l > right.num },
                 .GREATER_EQUAL => obj{ .boolean = l >= right.num },
                 .LESS => obj{ .boolean = l < right.num },

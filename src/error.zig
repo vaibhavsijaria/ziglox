@@ -15,6 +15,7 @@ pub const RuntimeError = error{
     IncompatibleTypes,
     InvalidOperation,
     NullType,
+    DivisionByZero,
 };
 
 pub const Error = struct {
