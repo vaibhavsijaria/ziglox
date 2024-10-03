@@ -68,6 +68,6 @@ pub fn run(allocator: Allocator, source: []const u8) !void {
     print("\n", .{});
 
     var interpreter = Interpreter.init(allocator);
-    const val = try interpreter.interpret(expr);
+    const val = interpreter.interpret(expr);
     printObj(val);
 }

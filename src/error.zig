@@ -11,6 +11,11 @@ pub const ParseError = error{
     GenericError,
 };
 
+pub const RuntimeError = error{
+    IncompatibleTypes,
+    InvalidOperation,
+};
+
 pub const Error = struct {
     pub fn printerr(value: anytype, message: []const u8) void {
         switch (@TypeOf(value)) {

@@ -5,9 +5,11 @@ const Errors = @import("error.zig");
 
 const obj = Tokens.obj;
 const Expr = Exprs.Expr;
+const Error = Errors.Error;
 const Token = Tokens.Token;
 const TokenType = Tokens.TokenType;
 const Allocator = std.mem.Allocator;
+const RuntimeErrors = Errors.RuntimeError;
 
 pub const Interpreter = struct {
     allocator: Allocator,
@@ -18,12 +20,12 @@ pub const Interpreter = struct {
         };
     }
 
-    pub fn interpret(self: *Interpreter, expr: *Expr) !?obj {
+    pub fn interpret(self: *Interpreter, expr: *Expr) ?obj {
         return switch (expr.*) {
-            .Binary => |b| self.binary(b),
-            .Unary => |u| self.unary(u),
-            .Literal => |l| self.literal(l),
-            .Grouping => |g| self.grouping(g),
+            .Binary => |b| self.binary(b) catch null,
+            .Unary => |u| self.unary(u) catch null,
+            .Literal => |l| self.literal(l) catch null,
+            .Grouping => |g| self.grouping(g) catch null,
             else => null, // temp
             // .Ternary => |t| self.ternary(t),
         };
@@ -34,36 +36,54 @@ pub const Interpreter = struct {
         return expr.value;
     }
 
-    fn grouping(self: *Interpreter, expr: Exprs.Grouping) !?obj {
+    fn grouping(self: *Interpreter, expr: Exprs.Grouping) anyerror!?obj {
         return self.interpret(expr.expression);
     }
 
-    fn unary(self: *Interpreter, expr: Exprs.Unary) !?obj {
-        const right = try self.interpret(expr.right);
+    fn unary(self: *Interpreter, expr: Exprs.Unary) anyerror!?obj {
+        const right = self.interpret(expr.right);
 
         return switch (expr.operator.tType) {
+            .BANG => obj{ .boolean = !truthVal(right) },
+
             .MINUS => if (right) |v| switch (v) {
                 .num => |n| obj{ .num = -n },
-                else => null, // some error
-            } else null // some error
-            ,
-            .BANG => obj{ .boolean = !truthVal(right) },
-            else => null, // some error
+
+                else => invalid_opd: {
+                    Error.printerr(expr.operator, "Invalid operator for the operand");
+                    break :invalid_opd RuntimeErrors.InvalidOperation;
+                },
+            } else null,
+
+            else => invalid_opt: {
+                Error.printerr(expr.operator, "Cannot be used as unary operator");
+                break :invalid_opt RuntimeErrors.InvalidOperation;
+            },
         };
     }
 
     fn binary(self: *Interpreter, expr: Exprs.Binary) anyerror!?obj {
-        const left = try self.interpret(expr.left) orelse return null; // some error
-        const right = try self.interpret(expr.right) orelse return null; // some error
+        const left = self.interpret(expr.left) orelse {
+            Error.printerr(expr.operator, "Error while interpreting left operand");
+            return null;
+        };
+        const right = self.interpret(expr.right) orelse {
+            Error.printerr(expr.operator, "Error while interpreting left operand");
+            return null;
+        };
 
         if (@intFromEnum(left) != @intFromEnum(right)) {
-            // some error
+            Error.printerr(expr.operator, "Cannot perform binary operation on different types");
+            return RuntimeErrors.IncompatibleTypes;
         }
 
         return switch (left) {
             .str => |l| switch (expr.operator.tType) {
                 .PLUS => obj{ .str = try std.fmt.allocPrint(self.allocator, "{s}{s}", .{ l, right.str }) },
-                else => null, // some error
+                else => invalid_opd: {
+                    Error.printerr(expr.operator, "Invalid operation on string type");
+                    break :invalid_opd RuntimeErrors.InvalidOperation;
+                },
             },
             .num => |l| switch (expr.operator.tType) {
                 .PLUS => obj{ .num = l + right.num },
@@ -76,10 +96,12 @@ pub const Interpreter = struct {
                 .LESS_EQUAL => obj{ .boolean = l <= right.num },
                 .EQUAL_EQUAL => obj{ .boolean = isEqual(left, right) },
                 .BANG_EQUAL => obj{ .boolean = !isEqual(left, right) },
-                else => null, // some error
-
+                else => null,
             },
-            else => null, // temp
+            else => invalid_opd: {
+                Error.printerr(expr.operator, "Invalid operation on numeric type");
+                break :invalid_opd RuntimeErrors.InvalidOperation;
+            }, // temp
         };
     }
 
