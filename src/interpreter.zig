@@ -3,14 +3,13 @@ const Tokens = @import("tokens.zig");
 const Exprs = @import("expr.zig");
 const Stmts = @import("stmt.zig");
 const Errors = @import("error.zig");
-const Printer = @import("tools/printers.zig");
 
 const obj = Tokens.obj;
 const Expr = Exprs.Expr;
 const Stmt = Stmts.Stmt;
 const Error = Errors.Error;
 const Token = Tokens.Token;
-const printObj = Printer.printObj;
+const print = std.debug.print;
 const TokenType = Tokens.TokenType;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
@@ -44,7 +43,7 @@ pub const Interpreter = struct {
         printObj(val);
     }
 
-    pub fn evaluate(self: *Interpreter, expr: *Expr) ?obj {
+    fn evaluate(self: *Interpreter, expr: *Expr) ?obj {
         return switch (expr.*) {
             .Binary => |b| self.binary(b) catch null,
             .Unary => |u| self.unary(u) catch null,
@@ -148,5 +147,17 @@ pub const Interpreter = struct {
             .boolean => |b| b,
             else => true,
         } else false;
+    }
+
+    fn printObj(value: ?obj) void {
+        if (value) |v| {
+            switch (v) {
+                .str => |s| print("{s}", .{s}),
+                .num => |n| print("{d}", .{n}),
+                .boolean => |b| print("{}", .{b}),
+            }
+        } else print("nil", .{});
+
+        print("\n", .{});
     }
 };
