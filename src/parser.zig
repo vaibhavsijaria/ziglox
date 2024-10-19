@@ -30,11 +30,37 @@ pub const Parser = struct {
 
     pub fn parse(self: *Parser) !ArrayList(Stmt) {
         var statements = ArrayList(Stmt).init(self.allocator);
-        while (!self.isAtEnd())
-            try statements.append(try self.statement());
-
-        // return self.expression() catch null;
+        while (!self.isAtEnd()) {
+            const stmt = try self.declaration();
+            if (stmt) |s|
+                try statements.append(s);
+        }
         return statements;
+    }
+
+    fn declaration(self: *Parser) !?Stmt {
+        if (self.match(&.{.VAR}))
+            return self.varDeclare() catch blk: {
+                self.synchronize();
+                break :blk null;
+            };
+
+        return self.statement() catch {
+            self.synchronize();
+            return null;
+        };
+    }
+
+    fn varDeclare(self: *Parser) !Stmt {
+        const name = try self.consume(.IDENTIFIER, "Expect variable name.");
+        var initializer: ?*Expr = null;
+
+        if (self.match(&.{.EQUAL}))
+            initializer = try self.expression();
+
+        _ = try self.consume(.SEMICOLON, "Expect ';' after variable declaration.");
+
+        return Stmt{ .VarStmt = Stmts.VarStmt{ .name = name, .initializer = initializer } };
     }
 
     fn statement(self: *Parser) !Stmt {
@@ -46,7 +72,7 @@ pub const Parser = struct {
     fn print(self: *Parser) !Stmt {
         const expr = try self.expression();
 
-        _ = self.consume(.SEMICOLON, "Expect ';' after value.") catch self.synchronize();
+        _ = try self.consume(.SEMICOLON, "Expect ';' after value.");
         return Stmt{ .Print = Stmts.Print{ .expr = expr } };
     }
 
@@ -191,6 +217,11 @@ pub const Parser = struct {
 
         if (self.matchLiteral()) |literal| {
             primary_expr.* = literal;
+            return primary_expr;
+        }
+
+        if (self.match(&.{.IDENTIFIER})) {
+            primary_expr.* = Expr{ .Var = Exprs.Var{ .name = self.previous() } };
             return primary_expr;
         }
 

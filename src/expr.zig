@@ -10,6 +10,7 @@ pub const Expr = union(enum) {
     Literal: Literal,
     Unary: Unary,
     Ternary: Ternary,
+    Var: Var,
 };
 
 pub const Binary = struct {
@@ -35,4 +36,8 @@ pub const Ternary = struct {
     condition: *Expr,
     then_branch: *Expr,
     else_branch: *Expr,
+};
+
+pub const Var = struct {
+    name: Token,
 };

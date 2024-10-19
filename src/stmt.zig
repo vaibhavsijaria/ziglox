@@ -9,6 +9,7 @@ pub const Stmt = union(enum) {
     Expr: ExprStmt,
     Func: Func,
     Print: Print,
+    VarStmt: VarStmt,
 };
 
 pub const Func = struct {
@@ -23,4 +24,9 @@ pub const ExprStmt = struct {
 
 pub const Print = struct {
     expr: *Expr,
+};
+
+pub const VarStmt = struct {
+    name: Token,
+    initializer: ?*Expr,
 };
