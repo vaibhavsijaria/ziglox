@@ -1,14 +1,19 @@
 const std = @import("std");
 const Tokens = @import("tokens.zig");
 const Exprs = @import("expr.zig");
+const Stmts = @import("stmt.zig");
 const Errors = @import("error.zig");
+const Printer = @import("tools/printers.zig");
 
 const obj = Tokens.obj;
 const Expr = Exprs.Expr;
+const Stmt = Stmts.Stmt;
 const Error = Errors.Error;
 const Token = Tokens.Token;
+const printObj = Printer.printObj;
 const TokenType = Tokens.TokenType;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 const RuntimeErrors = Errors.RuntimeError;
 
 pub const Interpreter = struct {
@@ -20,7 +25,26 @@ pub const Interpreter = struct {
         };
     }
 
-    pub fn interpret(self: *Interpreter, expr: *Expr) ?obj {
+    pub fn interpret(self: *Interpreter, statements: ArrayList(Stmt)) void {
+        for (statements.items) |stmt| {
+            _ = switch (stmt) {
+                .Expr => |expr| self.exprStmt(expr),
+                .Print => |expr| self.printStmt(expr),
+                else => continue,
+            };
+        }
+    }
+
+    fn exprStmt(self: *Interpreter, stmt: Stmts.ExprStmt) void {
+        _ = self.evaluate(stmt.expr);
+    }
+
+    fn printStmt(self: *Interpreter, stmt: Stmts.Print) void {
+        const val = self.evaluate(stmt.expr);
+        printObj(val);
+    }
+
+    pub fn evaluate(self: *Interpreter, expr: *Expr) ?obj {
         return switch (expr.*) {
             .Binary => |b| self.binary(b) catch null,
             .Unary => |u| self.unary(u) catch null,
@@ -37,11 +61,11 @@ pub const Interpreter = struct {
     }
 
     fn grouping(self: *Interpreter, expr: Exprs.Grouping) anyerror!?obj {
-        return self.interpret(expr.expression);
+        return self.evaluate(expr.expression);
     }
 
     fn unary(self: *Interpreter, expr: Exprs.Unary) anyerror!?obj {
-        const right = self.interpret(expr.right);
+        const right = self.evaluate(expr.right);
 
         return switch (expr.operator.tType) {
             .BANG => obj{ .boolean = !truthVal(right) },
@@ -63,11 +87,11 @@ pub const Interpreter = struct {
     }
 
     fn binary(self: *Interpreter, expr: Exprs.Binary) anyerror!?obj {
-        const left = self.interpret(expr.left) orelse {
+        const left = self.evaluate(expr.left) orelse {
             Error.printerr(expr.operator, "Error while interpreting left operand");
             return RuntimeErrors.NullType;
         };
-        const right = self.interpret(expr.right) orelse {
+        const right = self.evaluate(expr.right) orelse {
             Error.printerr(expr.operator, "Error while interpreting right operand");
             return RuntimeErrors.NullType;
         };

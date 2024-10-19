@@ -1,10 +1,12 @@
 const std = @import("std");
 const Tokens = @import("tokens.zig");
 const Exprs = @import("expr.zig");
+const Stmts = @import("stmt.zig");
 const Errors = @import("error.zig");
 
 const obj = Tokens.obj;
 const Expr = Exprs.Expr;
+const Stmt = Stmts.Stmt;
 const Error = Errors.Error;
 const Token = Tokens.Token;
 const TokenType = Tokens.TokenType;
@@ -26,8 +28,33 @@ pub const Parser = struct {
         };
     }
 
-    pub fn parse(self: *Parser) ?*Expr {
-        return self.expression() catch null;
+    pub fn parse(self: *Parser) !ArrayList(Stmt) {
+        var statements = ArrayList(Stmt).init(self.allocator);
+        while (!self.isAtEnd())
+            try statements.append(try self.statement());
+
+        // return self.expression() catch null;
+        return statements;
+    }
+
+    fn statement(self: *Parser) !Stmt {
+        if (self.match(&.{.PRINT})) return try self.print();
+
+        return self.exprs();
+    }
+
+    fn print(self: *Parser) !Stmt {
+        const expr = try self.expression();
+
+        _ = try self.consume(.SEMICOLON, "Expect ';' after value.");
+        return Stmt{ .Print = Stmts.Print{ .expr = expr } };
+    }
+
+    fn exprs(self: *Parser) !Stmt {
+        const expr = try self.expression();
+        _ = try self.consume(.SEMICOLON, "Expect ';' after value.");
+
+        return Stmt{ .Expr = Stmts.ExprStmt{ .expr = expr } };
     }
 
     fn expression(self: *Parser) !*Expr {
@@ -40,7 +67,7 @@ pub const Parser = struct {
         while (self.match(&.{.COMMA})) {
             const operator = self.previous();
             const right = try self.conditional();
-            const binary_expr = try self.allocator.create(Exprs.Expr);
+            const binary_expr = try self.allocator.create(Expr);
             binary_expr.* = Expr{ .Binary = Exprs.Binary{
                 .left = expr,
                 .operator = operator,
@@ -58,7 +85,7 @@ pub const Parser = struct {
             const then_branch = try self.expression();
             _ = try self.consume(.COLON, "Expect ':' after conditional expression.");
             const else_branch = try self.equality();
-            const ternary_expr = try self.allocator.create(Exprs.Expr);
+            const ternary_expr = try self.allocator.create(Expr);
             ternary_expr.* = Expr{ .Ternary = Exprs.Ternary{
                 .condition = expr,
                 .then_branch = then_branch,
@@ -76,7 +103,7 @@ pub const Parser = struct {
         while (self.match(&.{ .BANG_EQUAL, .EQUAL_EQUAL })) {
             const operator = self.previous();
             const right = try self.comparison();
-            const binary_expr = try self.allocator.create(Exprs.Expr);
+            const binary_expr = try self.allocator.create(Expr);
             binary_expr.* = Expr{ .Binary = Exprs.Binary{
                 .left = expr,
                 .operator = operator,
@@ -99,7 +126,7 @@ pub const Parser = struct {
         })) {
             const operator = self.previous();
             const right = try self.term();
-            const binary_expr = try self.allocator.create(Exprs.Expr);
+            const binary_expr = try self.allocator.create(Expr);
             binary_expr.* = Expr{ .Binary = Exprs.Binary{
                 .left = expr,
                 .operator = operator,
@@ -117,7 +144,7 @@ pub const Parser = struct {
         while (self.match(&.{ .MINUS, .PLUS })) {
             const operator = self.previous();
             const right = try self.factor();
-            const binary_expr = try self.allocator.create(Exprs.Expr);
+            const binary_expr = try self.allocator.create(Expr);
             binary_expr.* = Expr{ .Binary = Exprs.Binary{
                 .left = expr,
                 .operator = operator,
@@ -135,7 +162,7 @@ pub const Parser = struct {
         while (self.match(&.{ .SLASH, .STAR })) {
             const operator = self.previous();
             const right = try self.unary();
-            const binary_expr = try self.allocator.create(Exprs.Expr);
+            const binary_expr = try self.allocator.create(Expr);
             binary_expr.* = Expr{ .Binary = Exprs.Binary{
                 .left = expr,
                 .operator = operator,
@@ -151,7 +178,7 @@ pub const Parser = struct {
         if (self.match(&.{ .BANG, .MINUS })) {
             const operator = self.previous();
             const right = try self.unary();
-            const unary_expr = try self.allocator.create(Exprs.Expr);
+            const unary_expr = try self.allocator.create(Expr);
             unary_expr.* = Expr{ .Unary = .{ .operator = operator, .right = right } };
             return unary_expr;
         }
@@ -160,7 +187,7 @@ pub const Parser = struct {
     }
 
     fn primary(self: *Parser) anyerror!*Expr {
-        const primary_expr = try self.allocator.create(Exprs.Expr);
+        const primary_expr = try self.allocator.create(Expr);
 
         if (self.matchLiteral()) |literal| {
             primary_expr.* = literal;

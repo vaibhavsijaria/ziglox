@@ -60,14 +60,15 @@ pub fn run(allocator: Allocator, source: []const u8) !void {
     printTokens(tokens);
 
     var parser = Parser.init(allocator, tokens);
-    const expr = parser.parse() orelse return;
+    const expr = try parser.parse();
 
-    var astPrinter = AstPrinter.init(allocator);
-    print("Parsed Expressions: ", .{});
-    astPrinter.print(expr);
-    print("\n", .{});
+    // var astPrinter = AstPrinter.init(allocator);
+    // print("Parsed Expressions: ", .{});
+    // astPrinter.print(expr);
+    // print("\n", .{});
 
     var interpreter = Interpreter.init(allocator);
-    const val = interpreter.interpret(expr);
-    printObj(val);
+    // const val = interpreter.interpret(expr);
+    // printObj(val);
+    interpreter.interpret(expr);
 }
