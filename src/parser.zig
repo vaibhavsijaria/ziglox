@@ -46,13 +46,13 @@ pub const Parser = struct {
     fn print(self: *Parser) !Stmt {
         const expr = try self.expression();
 
-        _ = try self.consume(.SEMICOLON, "Expect ';' after value.");
+        _ = self.consume(.SEMICOLON, "Expect ';' after value.") catch self.synchronize();
         return Stmt{ .Print = Stmts.Print{ .expr = expr } };
     }
 
     fn exprs(self: *Parser) !Stmt {
         const expr = try self.expression();
-        _ = try self.consume(.SEMICOLON, "Expect ';' after value.");
+        _ = self.consume(.SEMICOLON, "Expect ';' after value.") catch self.synchronize();
 
         return Stmt{ .Expr = Stmts.ExprStmt{ .expr = expr } };
     }
