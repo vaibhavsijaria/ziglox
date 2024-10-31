@@ -1,11 +1,15 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "ziglox",
+        .name = try std.fmt.allocPrint(
+            std.heap.page_allocator,
+            "zlox-{s}-{s}",
+            .{ @tagName(target.result.cpu.arch), @tagName(target.result.os.tag) },
+        ),
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
